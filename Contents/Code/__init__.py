@@ -103,7 +103,7 @@ def Episodes(title, season):
         if str(episode['season']) != str(season):
             continue
 
-        url = 'http://www.fox.com/watch/%s' % episode['id']#video_url=%s&json_url=%s' % (episode['id'], String.Encode(episode['videoURL'] + '&manifest=m3u'), String.Encode(json_url))
+        url = 'http://www.fox.com/watch/%s' % episode['id']
         title = episode['name']
         summary = episode['shortDescription']
         
