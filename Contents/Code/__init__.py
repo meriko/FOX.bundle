@@ -2,7 +2,7 @@ PREFIX = '/video/fox'
 
 TITLE = 'FOX'
 ART = 'art-default.jpg'
-ICON = 'icon-default.png'
+ICON = 'icon-default.jpg'
 
 SHOWS_URL = 'aHR0cDovL2Fzc2V0cy5mb3guY29tL2FwcHMvRkVBL3YxLjgvYWxsc2hvd3MuanNvbg__'
 SERIES_URL = 'aHR0cDovL2ZlZWQudGhlcGxhdGZvcm0uY29tL2YvZm94LmNvbS9tZXRhZGF0YT9jb3VudD10cnVlJmJ5Q3VzdG9tVmFsdWU9e2Z1bGxFcGlzb2RlfXt0cnVlfSZieUNhdGVnb3JpZXM9U2VyaWVzLyVz'
