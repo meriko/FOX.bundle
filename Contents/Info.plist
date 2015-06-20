@@ -3,14 +3,14 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-		<string>com.plexapp.plugins.fox</string>
+	<string>com.plexapp.plugins.fox</string>
 	<key>PlexClientPlatforms</key>
-		<string>*</string>
+	<string>*</string>
 	<key>PlexFrameworkVersion</key>
-		<string>2</string>
+	<string>2</string>
 	<key>PlexPluginRegions</key>
-		<array>
-			<string>US</string>
-		</array>
+	<array>
+		<string>US</string>
+	</array>
 </dict>
 </plist>
