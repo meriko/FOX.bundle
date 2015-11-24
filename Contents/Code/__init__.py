@@ -4,6 +4,7 @@ TITLE = 'FOX'
 SHOWS_URL = 'aHR0cDovL2Fzc2V0cy5mb3guY29tL2FwcHMvRkVBL3YxLjgvYWxsc2hvd3MuanNvbg__'
 SERIES_URL = 'aHR0cDovL2ZlZWQudGhlcGxhdGZvcm0uY29tL2YvZm94LmNvbS9tZXRhZGF0YT9jb3VudD10cnVlJmJ5Q3VzdG9tVmFsdWU9e2Z1bGxFcGlzb2RlfXt0cnVlfSZieUNhdGVnb3JpZXM9U2VyaWVzLyVz'
 
+SHOW_IMAGE_URL = 'http://www.fox.com/_ugc/feeds/images/%s/aptveSeries.jpg'
 FALLBACK_THUMB = 'http://resources-cdn.plexapp.com/image/source/com.plexapp.plugins.fox.jpg'
 
 ##########################################################################################
@@ -29,16 +30,14 @@ def MainMenu():
             
         if show['external_link']:
             continue
-        
-        thumb = Callback(GetShowImage, facebook_url = show['facebook_url'], twitter_url = show['twitter_url'])
            
         oc.add(
             TVShowObject(
-                key = Callback(Seasons, title = show['title'], thumb = thumb),
+                key = Callback(Seasons, title = show['title'], stub = show['stub']),
                 rating_key = show['title'],
                 studio = 'FOX',
                 title = show['title'],
-                thumb = thumb
+                thumb = Resource.ContentsOfURLWithFallback(SHOW_IMAGE_URL % show['stub'], FALLBACK_THUMB)
             ) 
         )
  
@@ -46,7 +45,7 @@ def MainMenu():
 
 ##########################################################################################
 @route(PREFIX + '/seasons')
-def Seasons(title, thumb):
+def Seasons(title, stub):
 
     oc = ObjectContainer(title2 = title)
     
@@ -66,13 +65,13 @@ def Seasons(title, thumb):
     for season in seasons:
         oc.add(
             SeasonObject(
-                key = Callback(Episodes, title = title, thumb = thumb, season = str(season)),
+                key = Callback(Episodes, title = title, stub = stub, season = str(season)),
                 rating_key = title + str(season),
                 title = "Season " + str(season),
                 show = title,
                 index = int(season),
                 episode_count = seasons[season],
-                thumb = thumb
+                thumb = Resource.ContentsOfURLWithFallback(SHOW_IMAGE_URL % stub, FALLBACK_THUMB)
             )
         )
 
@@ -84,10 +83,10 @@ def Seasons(title, thumb):
 
 ##########################################################################################
 @route(PREFIX + '/episodes')
-def Episodes(title, thumb, season):
+def Episodes(title, stub, season):
 
     oc = ObjectContainer(title2 = title)
-    org_thumb = thumb
+    org_thumb = SHOW_IMAGE_URL % stub
     json_url = String.Decode(SERIES_URL) % String.Quote(title)
     json_data = JSON.ObjectFromURL(url = json_url)
     
@@ -127,7 +126,8 @@ def Episodes(title, thumb, season):
                 show = show,
                 index = index,
                 season = season,
-                originally_available_at = originally_available_at
+                originally_available_at = originally_available_at,
+                content_rating = episode['rating'] if 'rating' in episode else None
             )
         )
 
@@ -136,34 +136,3 @@ def Episodes(title, thumb, season):
         oc.message = "Couldn't find any full episodes for this show"
 
     return oc
-
-##########################################################################################
-@route(PREFIX + '/getshowimage')
-def GetShowImage(facebook_url, twitter_url):
-    # First try Facebook
-    if facebook_url:
-        try:
-            element = HTML.ElementFromURL(url = facebook_url, cacheTime = CACHE_1MONTH)
-            item = element.xpath("//meta[@property='og:image']/@content")
-            
-            if len(item) > 0:
-                image_url = str(item[0])
-                return HTTP.Request(url = image_url, cacheTime = CACHE_1MONTH).content
-        except:
-            pass
-        
-    # Try twitter instead
-    if twitter_url:
-        try:
-            element = HTML.ElementFromURL(url = twitter_url, cacheTime = CACHE_1MONTH)
-            item = element.xpath("//meta[@property='og:image']/@content")
-            
-            if len(item) > 0:
-                image_url = str(item[0])
-                return HTTP.Request(url = image_url, cacheTime = CACHE_1MONTH).content
-        except:
-            pass
-            
-    # ... otherwise use default icon
-    return HTTP.Request(url = FALLBACK_THUMB, cacheTime = CACHE_1MONTH).content
-    
