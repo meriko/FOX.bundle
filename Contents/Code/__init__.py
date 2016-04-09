@@ -7,6 +7,10 @@ SERIES_URL = 'aHR0cDovL2ZlZWQudGhlcGxhdGZvcm0uY29tL2YvZm94LmNvbS9tZXRhZGF0YT9jb3
 SHOW_IMAGE_URL = 'http://www.fox.com/_ugc/feeds/images/%s/aptveSeries.jpg'
 FALLBACK_THUMB = 'http://resources-cdn.plexapp.com/image/source/com.plexapp.plugins.fox.jpg'
 
+VIDEO_TEMPLATE_URL = 'http://www.fox.com/watch/%s'
+
+SMIL_NS = {'a': 'http://www.w3.org/2005/SMIL21/Language'}
+
 ##########################################################################################
 def Start():
 
@@ -94,7 +98,8 @@ def Episodes(title, stub, season):
         if str(episode['season']) != str(season):
             continue
 
-        url = 'http://www.fox.com/watch/%s' % episode['id']
+        url = episode['videoURL']
+        id = episode['id']
         title = episode['name']
         summary = episode['shortDescription']
         
@@ -114,25 +119,68 @@ def Episodes(title, stub, season):
 
         index = int(episode['episode'])
         season = int(episode['season'])
-        originally_available_at = Datetime.ParseDate(episode['airdate'])
+        originally_available_at = episode['airdate']
         
         oc.add(
-            EpisodeObject(
-                url = url,
+            DirectoryObject(
+                key = Callback(
+                    CreateEpisodeObject,
+                    url = url,
+                    id = id,
+                    title = title,
+                    summary = summary,
+                    thumb = thumb,
+                    duration = duration,
+                    show = show,
+                    index = index,
+                    season = season,
+                    originally_available_at = originally_available_at,
+                    content_rating = episode['rating'] if 'rating' in episode else None
+                ),
                 title = title,
                 summary = summary,
-                thumb = thumb,
-                duration = duration,
-                show = show,
-                index = index,
-                season = season,
-                originally_available_at = originally_available_at,
-                content_rating = episode['rating'] if 'rating' in episode else None
+                thumb = thumb
             )
         )
 
     if len(oc) < 1:
         oc.header = "Sorry"
         oc.message = "Couldn't find any full episodes for this show"
+
+    return oc
+
+####################################################################################################
+@route(PREFIX + '/createepisodeobject', id=int, duration=int, index=int, season=int)
+def CreateEpisodeObject(url, id, title, summary, thumb, duration, show, index, season, originally_available_at, content_rating):
+
+    oc = ObjectContainer(title2 = title)
+    episode_xml = XML.ObjectFromURL(url)
+
+    needs_auth = 'InvalidAuthToken' in XML.StringFromObject(episode_xml)
+    if needs_auth:
+        return ObjectContainer(
+            header = "Unavailable",
+            message = "This episode is currently locked"
+        )
+
+    try:
+        url = VIDEO_TEMPLATE_URL % episode_xml.xpath("//a:param[@name='brightcoveId']", namespaces=SMIL_NS)[0].get('value')
+    except:
+        url = VIDEO_TEMPLATE_URL % id
+
+    oc.add(
+        EpisodeObject(
+            url = url,
+            title = title,
+            summary = summary,
+            thumb = thumb,
+            duration = duration,
+            show = show,
+            index = index,
+            season = season,
+            originally_available_at = Datetime.ParseDate(originally_available_at),
+            content_rating = content_rating,
+        )
+    )
 
     return oc
