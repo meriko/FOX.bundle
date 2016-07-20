@@ -3,6 +3,7 @@ TITLE = 'FOX'
 
 SHOWS_URL = 'aHR0cDovL2Fzc2V0cy5mb3guY29tL2FwcHMvRkVBL3YxLjgvYWxsc2hvd3MuanNvbg__'
 SERIES_URL = 'aHR0cDovL2ZlZWQudGhlcGxhdGZvcm0uY29tL2YvZm94LmNvbS9tZXRhZGF0YT9jb3VudD10cnVlJmJ5Q3VzdG9tVmFsdWU9e2Z1bGxFcGlzb2RlfXt0cnVlfSZieUNhdGVnb3JpZXM9U2VyaWVzLyVz'
+FEATURED_URL = 'aHR0cDovL2ZlZWQudGhlcGxhdGZvcm0uY29tL2YvVEJtbzFCL2FwcGxldHYtZmVhdHVyZWQ/YWRhcHRlclBhcmFtcz1tdnBkJTNEJnJhbmdlPTEtMTAx'
 
 SHOW_IMAGE_URL = 'http://www.fox.com/_ugc/feeds/images/%s/aptveSeries.jpg'
 FALLBACK_THUMB = 'http://resources-cdn.plexapp.com/image/source/com.plexapp.plugins.fox.jpg'
@@ -23,7 +24,94 @@ def Start():
 ##########################################################################################
 @handler(PREFIX, TITLE)
 def MainMenu():
+    
+    oc = ObjectContainer()
 
+    oc.add(
+        DirectoryObject(
+            key = Callback(Special, latest = True),
+            title = 'Latest'
+        )
+    )
+
+    oc.add(
+        DirectoryObject(
+            key = Callback(Special),
+            title = 'Featured'
+        )
+    )
+    
+    oc.add(
+        DirectoryObject(
+            key = Callback(Shows),
+            title = 'All Shows'
+        )
+    )
+
+    return oc
+    
+##########################################################################################
+@route(PREFIX + '/special')
+def Special(latest = False):
+    
+    oc = ObjectContainer()
+
+    featured_data = JSON.ObjectFromURL(url = String.Decode(FEATURED_URL))
+    shows_data = JSON.ObjectFromURL(url = String.Decode(SHOWS_URL))
+    
+    episodes = {}
+    for featured_episode in featured_data['entries']:
+        if not featured_episode['fox$fullEpisode']:
+            continue
+        
+        found_show = None    
+        for show in shows_data['shows']:
+            if show['stub'] == featured_episode['fox$showcode']:
+                found_show = show
+                break
+                
+        if not found_show:
+            continue
+            
+        episodes_data = JSON.ObjectFromURL(url = String.Decode(SERIES_URL) % String.Quote(found_show['title']))
+
+        for episode in episodes_data['results']:
+            if (int(episode['episode']) == int(featured_episode['fox$episode'])) and (int(episode['season']) == int(featured_episode['fox$season'])):
+                episode_oc = Episodes(title = found_show['title'], stub = found_show['stub'], season = str(episode['season']), forced_episode = int(episode['season']))
+                
+                for object in episode_oc.objects:
+                    if int(episode['season']) >= 10:
+                        season_string = str(episode['season'])
+                    else:
+                        season_string = '0' + str(episode['season'])
+                        
+                    if int(episode['episode']) >= 10:
+                        episode_string = str(episode['episode'])
+                    else:
+                        episode_string = '0' + str(episode['episode'])
+                        
+                    object.title = object.title + ', S%sE%s' % (season_string, episode_string)
+                    
+                    if latest:
+                        try:
+                            episodes[episode['airdate']] = object
+                        except:
+                            pass
+                    else:
+                        oc.add(object)
+                
+                break
+
+    if latest:
+        for key in sorted(episodes, reverse=True):
+            oc.add(episodes[key])
+  
+    return oc
+
+##########################################################################################
+@route(PREFIX + '/shows')
+def Shows():
+    
     oc = ObjectContainer()
 
     json_data = JSON.ObjectFromURL(url = String.Decode(SHOWS_URL))
@@ -57,7 +145,6 @@ def Seasons(title, stub):
     json_data = JSON.ObjectFromURL(url = json_url)
 
     seasons = {}
-    full_episode_found = False
     
     for episode in json_data['results']:
         if episode['fullepisode']:
@@ -86,8 +173,8 @@ def Seasons(title, stub):
     return oc
 
 ##########################################################################################
-@route(PREFIX + '/episodes')
-def Episodes(title, stub, season):
+@route(PREFIX + '/episodes', forced_episode = int)
+def Episodes(title, stub, season, forced_episode = None):
 
     oc = ObjectContainer(title2 = title)
     org_thumb = SHOW_IMAGE_URL % stub
@@ -121,27 +208,36 @@ def Episodes(title, stub, season):
         season = int(episode['season'])
         originally_available_at = episode['airdate']
         
-        oc.add(
-            DirectoryObject(
-                key = Callback(
-                    CreateEpisodeObject,
-                    url = url,
-                    id = id,
+        forced_episode_found = False
+        if forced_episode:
+            if forced_episode == index:
+                forced_episode_found = True
+                
+        if (not forced_episode) or (forced_episode_found):
+            oc.add(
+                DirectoryObject(
+                    key = Callback(
+                        CreateEpisodeObject,
+                        url = url,
+                        id = id,
+                        title = title,
+                        summary = summary,
+                        thumb = thumb,
+                        duration = duration,
+                        show = show,
+                        index = index,
+                        season = season,
+                        originally_available_at = originally_available_at,
+                        content_rating = episode['rating'] if 'rating' in episode else None
+                    ),
                     title = title,
                     summary = summary,
-                    thumb = thumb,
-                    duration = duration,
-                    show = show,
-                    index = index,
-                    season = season,
-                    originally_available_at = originally_available_at,
-                    content_rating = episode['rating'] if 'rating' in episode else None
-                ),
-                title = title,
-                summary = summary,
-                thumb = thumb
+                    thumb = thumb
+                )
             )
-        )
+            
+            if forced_episode:
+                break
 
     if len(oc) < 1:
         oc.header = "Sorry"
